@@ -10,25 +10,25 @@ class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.mainLayout = QtWidgets.QHBoxLayout(self)
+        self.mainLayout = QtWidgets.QHBoxLayout(self, contentsMargins=QtCore.QMargins(0, 0, 0, 0))
         
         # Create the splitter
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         
         # Create the frames on each side
-        self.leftFrame = QtWidgets.QFrame(frameShape=QtWidgets.QFrame.StyledPanel)
-        self.rightFrame = QtWidgets.QFrame(frameShape=QtWidgets.QFrame.StyledPanel)
+        self.leftFrame = QtWidgets.QWidget()
+        self.rightFrame = QtWidgets.QWidget()
         
         # Set layouts for the frames
-        self.leftLayout = QtWidgets.QVBoxLayout(self.leftFrame)
-        self.rightLayout = QtWidgets.QVBoxLayout(self.rightFrame)
+        self.leftLayout = QtWidgets.QVBoxLayout(self.leftFrame, contentsMargins=QtCore.QMargins(0, 0, 0, 0), spacing=0)
+        self.rightLayout = QtWidgets.QVBoxLayout(self.rightFrame, contentsMargins=QtCore.QMargins(0, 0, 0, 0), spacing=0)
         
         # Add widgets or other layouts to the left frame
         self.camera = camera.CameraWidget()
         self.playToolbar = player.PlayerWidget()
-        self.playToolbar.setFixedHeight(50)
+        # set expanding horizontally and rap contant vertically
         self.leftLayout.addWidget(self.camera)
-        self.leftLayout.addWidget(self.playToolbar)
+        self.leftLayout.addWidget(self.playToolbar, alignment=QtCore.Qt.AlignCenter)
         
         # Add widgets or other layouts to the right frame
         self.dataSheet = datasheet.DataSheetWidget()
