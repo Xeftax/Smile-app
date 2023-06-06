@@ -40,7 +40,6 @@ class CameraWidget(QtWidgets.QWidget):
         observer.update("faceLandmarks", self.faceLandmarks)
 
     def paintEvent(self, event):
-        print(observer.get("framePosition"), self.video_capture.get(cv2.CAP_PROP_POS_FRAMES), observer.get("videoLength"))
         image = self.currentFrame.copy()
         face_landmarks = self.faceLandmarks[observer.get("framePosition")]
         if face_landmarks:
@@ -139,6 +138,7 @@ class CameraWidget(QtWidgets.QWidget):
                 if results and framePosition == 0:
                     self.faceLandmarks[framePosition] = results[0]
                     observer.update("faceLandmarks", self.faceLandmarks)
+                    print(observer.get("faceLandmarks")[framePosition].landmark[0].x)
             self.update()
         self.writeFrame(self.currentFrame, results[0] if results else None)
 

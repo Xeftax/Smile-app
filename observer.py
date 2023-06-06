@@ -22,3 +22,6 @@ def get(name):
 def __init_data_name(name):
     if name not in __data:
         __data[name] = [None,[]]
+
+def resetAllData():
+    __data.clear()

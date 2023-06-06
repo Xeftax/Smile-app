@@ -1,4 +1,5 @@
 from PySide6 import QtCore, QtWidgets, QtGui
+from os import path
 import observer
 
 btnSize = 50
@@ -8,14 +9,15 @@ class PlayerWidget(QtWidgets.QWidget):
         super().__init__()
         layout = QtWidgets.QHBoxLayout(self, contentsMargins=QtCore.QMargins(0, 0, 0, 0))
 
-        toStartButton = IconButton(QtGui.QIcon("resources/to_start_icon.svg"), "goToStart", "isAtStart")
-        previousButton = IconButton(QtGui.QIcon("resources/previous_icon.svg"), "previousFrame", "isAtStart")
-        playButton = ToggleButton(QtGui.QIcon("resources/play_icon.svg"), QtGui.QIcon("resources/pause_icon.svg"), "isPlaying")
-        nextButton = IconButton(QtGui.QIcon("resources/next_icon.svg"), "nextFrame", "isAtEnd")
-        toEndButton = IconButton(QtGui.QIcon("resources/to_end_icon.svg"), "goToEnd", "isAtEnd")
+        iconDir = "resources"
+        toStartButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_start_icon.svg")), "goToStart", "isAtStart")
+        previousButton = IconButton(QtGui.QIcon(path.join(iconDir,"previous_icon.svg")), "previousFrame", "isAtStart")
+        playButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"play_icon.svg")), QtGui.QIcon(path.join(iconDir,"pause_icon.svg")), "isPlaying")
+        nextButton = IconButton(QtGui.QIcon(path.join(iconDir,"next_icon.svg")), "nextFrame", "isAtEnd")
+        toEndButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_end_icon.svg")), "goToEnd", "isAtEnd")
         blank = QtWidgets.QWidget()
         blank.setFixedWidth(30)
-        recordButton = ToggleButton(QtGui.QIcon("resources/record_icon.svg"), QtGui.QIcon("resources/stop_icon.svg"), "isRecording")
+        recordButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"record_icon.svg")), QtGui.QIcon(path.join(iconDir,"stop_icon.svg")), "isRecording")
         recordButton.setEnabled(True)
 
         layout.addWidget(toStartButton)
