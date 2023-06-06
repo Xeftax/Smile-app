@@ -2,16 +2,16 @@
 
 * Create environment (Your Python executable might be called python3) :
     ```
-    python -m venv env
+    python -m venv venv
     ```
 * Activate the environment (Linux and macOS) :
     ```
-    source env/bin/activate
+    source venv/bin/activate
     ```
 
 * Activate the environment (Windows) :
     ```
-    env\Scripts\activate.bat
+    venv\Scripts\activate.bat
     ```
 
 * Install all requirements :
