@@ -60,15 +60,15 @@ class DataSheetWidget(QtWidgets.QWidget):
 
         if self.frameLandmarks and coordinate < len(self.frameLandmarks):
             landmarks = self.frameLandmarks[coordinate].landmark
-            print(landmarks[2].y-landmarks[0].y)
-            self.tableWidget.setItem(0, 1, QTableWidgetItem(landmarks[2].y-landmarks[0].y))
-            self.tableWidget.setItem(1, 1, QTableWidgetItem(landmarks[0].y-landmarks[13].y))
-            self.tableWidget.setItem(2, 1, QTableWidgetItem(landmarks[14].y-landmarks[17].y))
-            self.tableWidget.setItem(3, 1, QTableWidgetItem(landmarks[13].y-landmarks[14].y))
-            self.tableWidget.setItem(4, 1, QTableWidgetItem(landmarks[61].x-landmarks[78].x))
-            self.tableWidget.setItem(5, 1, QTableWidgetItem(landmarks[388].x-landmarks[291].x))
-            self.tableWidget.setItem(6, 1, QTableWidgetItem(landmarks[61].x-landmarks[291].x))
-            self.tableWidget.setItem(7, 1, QTableWidgetItem((landmarks[61].x-landmarks[78].x)/(landmarks[13].y-landmarks[14].y)))
+            # print(landmarks[2].y-landmarks[0].y)
+            self.tableWidget.setItem(0, 1, QTableWidgetItem(str(landmarks[2].y-landmarks[0].y)))
+            self.tableWidget.setItem(1, 1, QTableWidgetItem(str(landmarks[0].y-landmarks[13].y)))
+            self.tableWidget.setItem(2, 1, QTableWidgetItem(str(landmarks[14].y-landmarks[17].y)))
+            self.tableWidget.setItem(3, 1, QTableWidgetItem(str(landmarks[13].y-landmarks[14].y)))
+            self.tableWidget.setItem(4, 1, QTableWidgetItem(str(landmarks[61].x-landmarks[78].x)))
+            self.tableWidget.setItem(5, 1, QTableWidgetItem(str(landmarks[388].x-landmarks[291].x)))
+            self.tableWidget.setItem(6, 1, QTableWidgetItem(str(landmarks[61].x-landmarks[291].x)))
+            self.tableWidget.setItem(7, 1, QTableWidgetItem(str((landmarks[61].x-landmarks[78].x)/(landmarks[13].y-landmarks[14].y))))
             
             self.update()
 
