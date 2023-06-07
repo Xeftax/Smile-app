@@ -3,6 +3,7 @@ import observer
 import camera
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QWidget, QHeaderView, QTableView, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QWidget, QHeaderView, QTableView, QTableWidget, QTableWidgetItem
 
 class DataSheetWidget(QtWidgets.QWidget):
     def __init__(self):
