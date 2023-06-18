@@ -1,7 +1,12 @@
+import time
 import cv2
+import imageio
+import numpy as np
 from PySide6 import QtCore, QtWidgets, QtGui
 import mediapipe as mp
+import facemesh
 import observer
+import threading
 
 class CameraWidget(QtWidgets.QWidget):
     def __init__(self):
@@ -20,12 +25,22 @@ class CameraWidget(QtWidgets.QWidget):
         #Video capture
         self.video_capture = cv2.VideoCapture(0)
         self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.loadNextFrame)
+        self.timer.timeout.connect(self.loadNextLiveFrame)
         self.timer.start(33)
 
         self.currentFrame = None
-        self.writeFrame = lambda frame,landmarks: None
-        self.loadNextFrame()
+        self.framePosition = None
+        self.recordedFrames = [[],[]] # [frames, frameInterval]
+        self.prevFrameTime = None
+        self.recordFrame = lambda _: None
+        self.drawFrameLandmarks = lambda _: None
+        self.imageCenter = None
+        self.zoom_factor = 1.0
+        self.time = [0]
+        self.loadNextLiveFrame()
+
+        self.stopThread = False
+        threading.Thread(target=self.liveResult).start()
 
         observer.update("videoLoaded", False)
         observer.register("isRecording", self.startRecord)
@@ -36,90 +51,128 @@ class CameraWidget(QtWidgets.QWidget):
         observer.register("goToStart", lambda _: self.toStart())
         observer.register("goToEnd", lambda _: self.toEnd())
         observer.register("framePosition", self.updateStartEndObserver)
+        observer.register("faceLandmarks", lambda faceLandmarks, self=self: setattr(self, 'faceLandmarks', faceLandmarks))
+        observer.register("showLandmarks", lambda showLandmarks, self=self: setattr(self, 'drawFrameLandmarks', self.drawLandmarks) if showLandmarks else setattr(self, 'drawFrameLandmarks', lambda _: None))
+        observer.register("zoom", lambda zoom, self=self: setattr(self,"zoom_factor",zoom))
+        observer.register("framePosition", self.mouthTracking)
         observer.update("videoLength", 0)
+        observer.update("isAtStart", False)
+        observer.update("isAtEnd", False)
         observer.update("faceLandmarks", self.faceLandmarks)
+        observer.update("showLandmarks", True)
+        observer.update("zoom", self.zoom_factor)
+        observer.update("mouthTracking", False)
 
     def paintEvent(self, event):
         image = self.currentFrame.copy()
-        face_landmarks = self.faceLandmarks[observer.get("framePosition")]
-        if face_landmarks:
-            mp.solutions.drawing_utils.draw_landmarks(
-                image=image,
-                landmark_list=face_landmarks,
-                connections=mp.solutions.face_mesh.FACEMESH_TESSELATION,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp.solutions.drawing_styles
-                .get_default_face_mesh_tesselation_style())
-        image = self.convert_frame_to_image(image)
+        self.drawFrameLandmarks(image)
+        w,h = image.shape[1]/self.zoom_factor, image.shape[0]/self.zoom_factor
+        if not self.imageCenter: self.mouthTracking(0)
+        x1 = int(self.imageCenter[0]-w/2)
+        x2 = int(self.imageCenter[0]+w/2)
+        y1 = int(self.imageCenter[1]-h/2)
+        y2 = int(self.imageCenter[1]+h/2)
+        if x1 < 0:
+            x2 += x1
+            x1 = 0
+        elif x2 > image.shape[1]:
+            x1 += x2 - image.shape[1]
+            x2 = image.shape[1]
+        if y1 < 0:
+            y2 += y1
+            y1 = 0
+        elif y2 > image.shape[0]:
+            y1 += y2 - image.shape[0]
+            y2 = image.shape[0]
+        image = image[y1:y2, x1:x2]
+        convertedImage = self.convert_frame_to_image(image)
         painter = QtGui.QPainter(self)
         painter.fillRect(self.rect(), QtGui.QColor("black"))
-        painter.drawImage(self.rect().center() - image.rect().center(), image)
+        painter.drawImage(self.rect().center() - convertedImage.rect().center(), convertedImage)
+
+    def wheelEvent(self, event):
+        modifiers = QtGui.QGuiApplication.keyboardModifiers()
+        if modifiers == QtCore.Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_factor *= 1.1  # Increase zoom factor
+            else:
+                self.zoom_factor /= 1.1  # Decrease zoom factor
+            if self.zoom_factor < 1.0:
+                self.zoom_factor = 1.0
+            if self.zoom_factor > 10.0:
+                self.zoom_factor = 10.0
+            observer.update("zoom", self.zoom_factor)
+            self.update()
     
     def convert_frame_to_image(self, frame):
         height, width, channel = frame.shape
         bytes_per_line = channel * width
-        q_image = QtGui.QImage(cv2.flip(frame, 1).data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+        q_image = QtGui.QImage(frame.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
         q_image = q_image.scaledToHeight(self.height())
         return q_image.rgbSwapped()
 
     def changeVideoCapture(self, videoLoaded):
         self.video_capture.release()
         if videoLoaded:
-            self.video_capture = cv2.VideoCapture("output.avi")
-            videoLength = int(self.video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            observer.update("videoLength", videoLength)
-            observer.update("frameLandmarks", [None]*(videoLength+1))
+            self.timer.timeout.disconnect()
+            self.timer.timeout.connect(self.loadNextRecordedFrame)
+            observer.update("videoLength", len(self.recordedFrames[0]))
             observer.update("isPlaying", False)
-            self.loadNextFrame()
+            self.toStart()
         else:
+            self.timer.timeout.disconnect()
+            self.timer.timeout.connect(self.loadNextLiveFrame)
             self.video_capture = cv2.VideoCapture(0)
 
     def playLoadedVideo(self, isPlaying):
         if not observer.get("videoLoaded"): return
         if isPlaying:
+            if observer.get("isAtEnd"): self.toStart()
             observerIndex = observer.register("isAtEnd", 
                 lambda isAtEnd: (observer.update("isPlaying",False), 
-                                 observer.update("goToStart",None),
                                  observer.unregister("isAtEnd",observerIndex)) 
                                  if isAtEnd else None)
-            self.timer.start(33)
+            self.timer.start(self.recordedFrames[1][observer.get("framePosition")])
         else:
             self.timer.stop()
 
     def previousFrame(self):
         if not observer.get("videoLoaded"): return
-        self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, self.video_capture.get(cv2.CAP_PROP_POS_FRAMES) - 2)
-        self.loadNextFrame()
+        observer.update("framePosition", observer.get("framePosition") - 2)
+        self.loadNextRecordedFrame()
 
     def nextFrame(self):
         if not observer.get("videoLoaded"): return
-        self.loadNextFrame()
+        self.loadNextRecordedFrame()
 
     def toStart(self):
         if not observer.get("videoLoaded"): return
-        self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        self.loadNextFrame()
+        observer.update("framePosition", -1)
+        self.loadNextRecordedFrame()
     
     def toEnd(self):
         if not observer.get("videoLoaded"): return
-        self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, self.video_capture.get(cv2.CAP_PROP_FRAME_COUNT) - 1)
-        self.loadNextFrame()
+        observer.update("framePosition", observer.get("videoLength")-2)
+        self.loadNextRecordedFrame()
 
     def startRecord(self, record):
         if not record: return
         w = int(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        videoWriter = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 33.0, (w,h))
-        self.writeFrame = lambda frame,landmarks: (videoWriter.write(frame), self.faceLandmarks.append(landmarks))
-        observerIndex = observer.register("isRecording", lambda record: self.stopRecord(videoWriter,observerIndex) if not record else None)
+        #videoWriter = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 30.3, (w,h))
+        self.recordFrame = self.saveFrame
+        observerIndex = observer.register("isRecording", lambda record: self.stopRecord(observerIndex) if not record else None)
 
-    def stopRecord(self, videoWriter, observerIndex):
-        videoWriter.release()
+    def stopRecord(self, observerIndex):
         observer.unregister("isRecording", observerIndex)
+        observer.update("loadedFrames", self.recordedFrames)
         observer.update("videoLoaded", True)
-        self.writeFrame = lambda frame,landmarks: None
+        self.recordFrame = lambda _: None
+        self.faceLandmarks = facemesh.faceMeshProcess(self.recordedFrames[0])
+        observer.update("faceLandmarks", self.faceLandmarks)
 
-    def loadNextFrame(self):
+    def loadNextLiveFrame(self):
         if not self.video_capture.isOpened():
             print("Error: unable to open video source")
         else :
@@ -127,25 +180,60 @@ class CameraWidget(QtWidgets.QWidget):
             if not ret:
                 print("Error: unable to read video source")
             else : 
+                frame = cv2.flip(frame, 1)
                 self.currentFrame = frame
-                framePosition = int(self.video_capture.get(cv2.CAP_PROP_POS_FRAMES))
-                observer.update("framePosition", framePosition)
-                # face mesh
-                frame.flags.writeable = False
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = self.face_mesh.process(frame).multi_face_landmarks
-                #live result
-                if results and framePosition == 0:
-                    self.faceLandmarks[framePosition] = results[0]
-                    observer.update("faceLandmarks", self.faceLandmarks)
-                    print(observer.get("faceLandmarks")[framePosition].landmark[0].x)
+                observer.update("framePosition", 0)
             self.update()
-        self.writeFrame(self.currentFrame, results[0] if results else None)
+        self.recordFrame(frame)
+
+    def loadNextRecordedFrame(self):
+        framePosition = observer.get("framePosition")+1
+        self.currentFrame = self.recordedFrames[0][framePosition]
+        observer.update("framePosition", framePosition)
+        if observer.get("isPlaying"): self.timer.start(self.recordedFrames[1][framePosition])
+        self.update()
+
+    def saveFrame(self, frame):
+        currentTime = time.time()
+        interval = (currentTime - self.prevFrameTime if self.prevFrameTime else 0)*1000
+        self.prevFrameTime = currentTime
+        self.recordedFrames[0].append(frame)
+        self.recordedFrames[1].append(interval)
+
+    def mouthTracking(self,framePosition):
+        w,h = self.currentFrame.shape[1], self.currentFrame.shape[0]
+        if observer.get("mouthTracking"): 
+            x1 = self.faceLandmarks[framePosition].landmark[61].x*w
+            x2 = self.faceLandmarks[framePosition].landmark[291].x*w
+            y1 = self.faceLandmarks[framePosition].landmark[0].y*h
+            y2 = self.faceLandmarks[framePosition].landmark[17].y*h
+            self.imageCenter = (int((x1 + x2)/2), int((y1 + y2)/2))
+        else:
+            self.imageCenter = (int(w/2), int(h/2))
+
+    def liveResult(self):
+        while not observer.get("videoLoaded") and not self.stopThread:
+            results = self.face_mesh.process(self.currentFrame).multi_face_landmarks
+            if results: 
+                self.faceLandmarks[0] = results[0]
+                observer.update("faceLandmarks", self.faceLandmarks)
+
+    def drawLandmarks(self,image):
+        face_landmarks = self.faceLandmarks[observer.get("framePosition")]
+        if not face_landmarks: return
+        for landmark in face_landmarks.landmark:
+            x = int(landmark.x * image.shape[1])
+            y = int(landmark.y * image.shape[0])
+            cv2.circle(image, (x, y), 1, (200, 200, 200), -1)
 
     def updateStartEndObserver(self, pos):
-        IsAtStart, isAtEnd = pos == 1, pos == observer.get("videoLength")
-        observer.update("isAtStart", IsAtStart) if IsAtStart != observer.get("isAtStart") else None
-        observer.update("isAtEnd", isAtEnd) if isAtEnd != observer.get("isAtEnd") else None
+        IsAtStart, isAtEnd = pos == 0, pos == observer.get("videoLength")-1
+        print(IsAtStart, isAtEnd,pos,observer.get("videoLength"))
+        if IsAtStart != observer.get("isAtStart") :
+            observer.update("isAtStart", IsAtStart)
+        if isAtEnd != observer.get("isAtEnd"):
+            observer.update("isAtEnd", isAtEnd)
+
         
 
 

@@ -73,6 +73,7 @@ class MainWindow(QtWidgets.QWidget):
         self.rightLayout.addWidget(self.curves)
 
     def closeEvent(self, event):
+        self.camera.stopThread = True
         self.menubar.unsaveDataPopupFunction(event.accept,event.ignore)
 
 
