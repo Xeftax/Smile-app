@@ -1,10 +1,8 @@
 
 import os
-import shutil
-import pickle
-import imageio
+import cv2
 from PySide6 import QtWidgets,QtGui,QtCore
-import facemesh
+import utils
 import observer
 
 class MenuBar(QtWidgets.QMenuBar):
@@ -14,6 +12,8 @@ class MenuBar(QtWidgets.QMenuBar):
         self.createFileMenu()
         self.createEditMenu()
         self.createViewMenu()
+
+        observer.register("createNew", lambda _: self.newFunction())
         
         self.setGeometry(0, 0, self.parent().width(), 20)
     
@@ -112,17 +112,32 @@ class MenuBar(QtWidgets.QMenuBar):
         )
 
         if file_path:
-            video = imageio.get_reader(file_path)
-            frames = [video.get_data(i) for i in range(video.count_frames())]
-            intervals = video.get_meta_data()
-            observer.update("loadedFrames", [frames, intervals['frame_intervals']])
-            observer.update("videoLoaded", True)
-            data_path = ".".join(file_path.split(".")[:-1] + ["pkl"])
+            video = cv2.VideoCapture(file_path)
+            videoLenght = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            frames = []
+            for _ in range(videoLenght):
+                ret, frame = video.read()
+                if not ret:
+                    print("Error: unable to read video source")
+                else : 
+                    frames.append(frame)
+            data_path = ".".join(file_path.split(".")[:-1] + ["txt"])
             if os.path.isfile(data_path): 
-                with open(data_path, 'rb') as file:
-                    observer.update("faceLandmarks",pickle.load(file))  
+                with open(data_path, 'r') as file:
+                    landmarks,intervals = utils.strToDataList(file.read())
             else:
-                observer.update("faceLandmarks", facemesh.faceMeshProcess("output.avi"))
+                QtWidgets.QMessageBox.warning(
+                self,
+                "Warning",
+                "The imported video has no associated data file !\nThe face landmarks will be computed with a constant framerate.\nTake care of the results !",
+                QtWidgets.QMessageBox.Ok
+                )
+                landmarks = utils.faceMeshProcess(frames)
+                intervals = [1000/video.get(cv2.CAP_PROP_FPS) for _ in range(videoLenght)]
+                observer.update("dataSaved", False)
+            observer.update("loadedFrames", [frames, intervals])
+            observer.update("videoLoaded", True)
+            observer.update("faceLandmarks", landmarks)
 
     def saveFunction(self):
         if not observer.get("videoLoaded"):
@@ -139,10 +154,10 @@ class MenuBar(QtWidgets.QMenuBar):
             self,
             "Save Video",
             QtCore.QStandardPaths.standardLocations(QtCore.QStandardPaths.HomeLocation)[0],
-            "MP4 Files (*.mp4)","All Files (*)",
+            "All Files (*)",
             options=options
         )
-        
+
         if file_path:
             if os.path.isfile(file_path):
                 QtWidgets.QMessageBox.warning(
@@ -154,20 +169,34 @@ class MenuBar(QtWidgets.QMenuBar):
                 return
             if os.path.isdir(file_path): os.remove(file_path)
             os.mkdir(file_path)
+
+            video_path = os.path.join(file_path, os.path.basename(file_path) + ".mp4")
+            data_path = os.path.join(file_path, os.path.basename(file_path) + ".txt")
+
             frames,intervals = observer.get("loadedFrames")
-            fps = 1000/(sum(intervals)/len(intervals))
-            imageio.mimwrite(os.path.join(file_path,os.path.basename(file_path)+".mp4"), frames, fps=fps, metadata={'frame_intervals': 'intervals'})
-            data_path = os.path.join(file_path,os.path.basename(file_path)+".pkl")
-            with open(data_path, 'wb') as file:
-                pickle.dump(observer.get("faceLandmarks"), file)
+            landmarks = observer.get("faceLandmarks")
+
+            frame_height, frame_width = frames[0].shape[:2]
+            output_fps = 1000/(sum(intervals)/len(intervals))
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+            out = cv2.VideoWriter(video_path, fourcc, output_fps, (frame_width, frame_height))
+            [out.write(frame) for frame in frames]
+            out.release()
+
+            with open(data_path, 'w') as file:
+                file.write(utils.dataListToStr(landmarks, intervals))
+
             observer.update("videoSaved", True)
+            observer.update("dataSaved", True)
     
     def exitFunction(self):
         self.parent().close()
 
     def recomputeLandmarksFunction(self):
         if observer.get("videoLoaded"):
-            facemesh.faceMeshProcess(observer.get("loadedFrames"))
+            utils.faceMeshProcess(observer.get("loadedFrames")[0])
+            observer.update("dataSaved", False)
 
     def addLandmarkManuallyFunction(self):
         pass
@@ -191,7 +220,16 @@ class MenuBar(QtWidgets.QMenuBar):
         self.parent().camera.update()
 
     def zoomToMouthFunction(self):
-        pass
+        landmarks = observer.get("faceLandmarks")[observer.get("framePosition")]
+        h,w = self.parent().camera.currentFrame.shape[:2]
+        nw = (landmarks[291][0]-landmarks[61][0])*w*4
+        nh = (landmarks[17][1]-landmarks[0][1])*h*2
+        if not observer.get("mouthTracking") : 
+            observer.update("mouthTracking", True)
+        observer.update("zoom", round(min(w/nw, h/nh),1))
+        self.parent().camera.update()
+
+
 
     def enableMouthTrackingFunction(self):
         observer.update("mouthTracking", not observer.get("mouthTracking"))
@@ -202,7 +240,7 @@ class MenuBar(QtWidgets.QMenuBar):
             confirm = QtWidgets.QMessageBox.question(
             self,
             "Confirmation",
-            "Some video or data are not saved\nAre you sure you want to continue ?",
+            "Some video or data are not saved.\nAre you sure you want to continue ?",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
             )
             if confirm == QtWidgets.QMessageBox.Yes:

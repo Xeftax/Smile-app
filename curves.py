@@ -1,12 +1,7 @@
-import sys
-import math
-import numpy as np
-from PySide6 import QtCore, QtWidgets, QtGui
-from PySide6.QtWidgets import QWidget, QLabel, QComboBox, QApplication, QVBoxLayout, QMainWindow, QSizePolicy
-from PySide6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
-from PySide6.QtCore import QTimer
 
-import datasheet
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtWidgets import QComboBox, QVBoxLayout
+from PySide6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
 import observer
 
 class CurvesWidget(QtWidgets.QWidget):
@@ -14,20 +9,6 @@ class CurvesWidget(QtWidgets.QWidget):
         super().__init__()
 
         self.title = QtWidgets.QLabel("Curves")
-
-        # ComboBox for the parameters
-        self.comboBox = QComboBox(self)
-        self.comboBox.addItem("Lip Lenth")
-        self.comboBox.addItem("Upper Lip Thickness")
-        self.comboBox.addItem("Lower Lip Thickness")
-        self.comboBox.addItem("Interlabial Gap")
-        self.comboBox.addItem("Commissure Corridor Left")
-        self.comboBox.addItem("Commissure Corridor Right")
-        self.comboBox.addItem("Smile Width")
-        self.comboBox.addItem("Smile Index")
-
-        # Connect signals to the methods
-        self.comboBox.currentTextChanged.connect(self.onComboBoxTextChanged)
 
         # Graph set up
         self.chart = QChart()
@@ -58,7 +39,6 @@ class CurvesWidget(QtWidgets.QWidget):
         # self.show() 
 
         layout = QVBoxLayout(self, contentsMargins=QtCore.QMargins(0,0,0,0))
-        layout.addWidget(self.comboBox)
         layout.addWidget(self.chartView)
                
         observer.register("framePosition",self.updatePlotData)
@@ -68,31 +48,31 @@ class CurvesWidget(QtWidgets.QWidget):
 
         coordinate = observer.get("framePosition")
         self.frameLandmarks = observer.get("faceLandmarks")
-        landmarks = self.frameLandmarks[coordinate].landmark
+        landmarks = self.frameLandmarks[coordinate]
 
         if text == "Lip Lenth":
-            self.comboBoxChoice = landmarks[0].y-landmarks[2].y
+            self.comboBoxChoice = landmarks[0][1]-landmarks[2][1]
             self.indexChoice = 0
         elif text == "Upper Lip Thickness":
-            self.comboBoxChoice = landmarks[13].y-landmarks[0].y
+            self.comboBoxChoice = landmarks[13][1]-landmarks[0][1]
             self.indexChoice = 1
         elif text == "Lower Lip Thickness":
-            self.comboBoxChoice = landmarks[17].y-landmarks[14].y
+            self.comboBoxChoice = landmarks[17][1]-landmarks[14][1]
             self.indexChoice = 2
         elif text == "Interlabial Gap":
-            self.comboBoxChoice = landmarks[14].y-landmarks[13].y
+            self.comboBoxChoice = landmarks[14][1]-landmarks[13][1]
             self.indexChoice = 3
         elif text == "Commissure Corridor Left":
-            self.comboBoxChoice = landmarks[78].x-landmarks[61].x
+            self.comboBoxChoice = landmarks[78][0]-landmarks[61][0]
             self.indexChoice = 4
         elif text == "Commissure Corridor Right":
-            self.comboBoxChoice = landmarks[388].x-landmarks[291].x
+            self.comboBoxChoice = landmarks[388][0]-landmarks[291][0]
             self.indexChoice = 5
         elif text == "Smile Width":
-            self.comboBoxChoice = landmarks[291].x-landmarks[61].x
+            self.comboBoxChoice = landmarks[291][0]-landmarks[61][0]
             self.indexChoice = 6
         elif text == "Smile Index":
-            self.comboBoxChoice = (landmarks[61].x-landmarks[78].x)/(landmarks[13].y-landmarks[14].y)
+            self.comboBoxChoice = (landmarks[61][0]-landmarks[78][0])/(landmarks[13][1]-landmarks[14][1])
             self.indexChoice = 7
              
     

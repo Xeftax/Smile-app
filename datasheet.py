@@ -1,10 +1,6 @@
-import sys
 import observer
-import camera
-import observer
-import camera
-from PySide6 import QtCore, QtWidgets, QtGui
-from PySide6.QtWidgets import QWidget, QHeaderView, QTableView, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QComboBox
 
 class DataSheetWidget(QtWidgets.QWidget):
     def __init__(self):
@@ -17,9 +13,17 @@ class DataSheetWidget(QtWidgets.QWidget):
         self.tableWidget.setHorizontalHeaderLabels(['Index','Distance'])
         self.tableWidget.setColumnWidth(0,165)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
+        self.comboBox = QComboBox(self)
+        self.comboBox.addItem("Distance")
+        self.comboBox.addItem("Speed")
+
         self.layout = QVBoxLayout(self, contentsMargins=QtCore.QMargins(0,0,0,0))
+        self.layout.addWidget(self.comboBox)
         self.layout.addWidget(self.tableWidget)
         self.tableWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
+        
 
         # self.data = [[None]*8]
         self.data = [[] for _ in range(8)]
@@ -53,16 +57,16 @@ class DataSheetWidget(QtWidgets.QWidget):
 
         if self.frameLandmarks and coordinate < len(self.frameLandmarks):
 
-            landmarks = self.frameLandmarks[coordinate].landmark
+            landmarks = self.frameLandmarks[coordinate]
             
-            self.data[0].append(landmarks[0].y-landmarks[2].y)
-            self.data[1].append(landmarks[13].y-landmarks[0].y)
-            self.data[2].append(landmarks[17].y-landmarks[14].y)
-            self.data[3].append(landmarks[14].y-landmarks[13].y)
-            self.data[4].append(landmarks[78].x-landmarks[61].x)
-            self.data[5].append(landmarks[388].x-landmarks[291].x)
-            self.data[6].append(landmarks[291].x-landmarks[61].x)
-            self.data[7].append((landmarks[61].x-landmarks[78].x)/(landmarks[13].y-landmarks[14].y))
+            self.data[0].append(landmarks[0][1]-landmarks[2][1])
+            self.data[1].append(landmarks[13][1]-landmarks[0][1])
+            self.data[2].append(landmarks[17][1]-landmarks[14][1])
+            self.data[3].append(landmarks[14][1]-landmarks[13][1])
+            self.data[4].append(landmarks[78][0]-landmarks[61][0])
+            self.data[5].append(landmarks[388][0]-landmarks[291][0])
+            self.data[6].append(landmarks[291][0]-landmarks[61][0])
+            self.data[7].append((landmarks[61][0]-landmarks[78][0])/(landmarks[13][1]-landmarks[14][1]))
 
             self.tableWidget.setItem(0, 1, QTableWidgetItem("{:.2f}".format(self.data[0][-1])))
             self.tableWidget.setItem(1, 1, QTableWidgetItem("{:.2f}".format(self.data[1][-1])))
@@ -72,7 +76,7 @@ class DataSheetWidget(QtWidgets.QWidget):
             self.tableWidget.setItem(5, 1, QTableWidgetItem("{:.2f}".format(self.data[5][-1])))
             self.tableWidget.setItem(6, 1, QTableWidgetItem("{:.2f}".format(self.data[6][-1])))
             self.tableWidget.setItem(7, 1, QTableWidgetItem("{:.2f}".format(self.data[7][-1])))
-
+            
             
             observer.update("distanceDatas",self.data)
 
