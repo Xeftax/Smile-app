@@ -1,16 +1,13 @@
 import time
-from PySide6 import QtCore, QtWidgets
-from PySide6.QtWidgets import QVBoxLayout
+from PySide6.QtWidgets import QWidget,QVBoxLayout
 from PySide6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
 from PySide6.QtGui import QPen
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QMargins
 import observer
 
-class CurvesWidget(QtWidgets.QWidget):
+class CurvesWidget(QWidget):
     def __init__(self):
         super().__init__()
-
-        self.title = QtWidgets.QLabel("Curves")
 
         # Graph set up
         self.chart = QChart()
@@ -30,13 +27,13 @@ class CurvesWidget(QtWidgets.QWidget):
         self.chart.legend().hide()
         self.axisX = QValueAxis()
         self.axisX.setRange(0,self.xRange)
-        self.chart.addAxis(self.axisX,QtCore.Qt.AlignBottom)
+        self.chart.addAxis(self.axisX,Qt.AlignBottom)
         self.axisY = QValueAxis()
-        self.chart.addAxis(self.axisY,QtCore.Qt.AlignLeft)
+        self.chart.addAxis(self.axisY,Qt.AlignLeft)
 
         self.chart.mousePressEvent = self.chart_clicked
 
-        layout = QVBoxLayout(self, contentsMargins=QtCore.QMargins(0,0,0,0))
+        layout = QVBoxLayout(self, contentsMargins=QMargins(0,0,0,0))
         layout.addWidget(self.chartView)
                
         observerIndex = observer.register("framePosition",lambda _: self.updatePlotLiveData()) 

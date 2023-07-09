@@ -1,20 +1,23 @@
 import time
 import cv2
 import numpy as np
-from PySide6 import QtCore, QtWidgets, QtGui
-import mediapipe as mp
+import threading
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QWidget, QSizePolicy, QComboBox
+from PySide6.QtGui import QPainter, QColor, QGuiApplication, QImage
+import mediapipe.python.solutions.face_mesh as mp_face_mesh
+import mediapipe.python.solutions.face_mesh_connections as mp_face_mesh_connections
 import utils
 import observer
-import threading
 
-class CameraWidget(QtWidgets.QWidget):
+class CameraWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         #Face recognition
-        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
+        self.face_mesh = mp_face_mesh.FaceMesh(
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
@@ -23,7 +26,7 @@ class CameraWidget(QtWidgets.QWidget):
 
         #Video capture
         self.video_capture = cv2.VideoCapture(observer.get('cameraId'))
-        self.timer = QtCore.QTimer(self)
+        self.timer = QTimer(self)
         self.timer.timeout.connect(self.loadNextLiveFrame)
         self.timer.start(33)
 
@@ -93,13 +96,13 @@ class CameraWidget(QtWidgets.QWidget):
             y2 = image.shape[0]
         image = image[y1:y2, x1:x2]
         convertedImage = self.convert_frame_to_image(image)
-        painter = QtGui.QPainter(self)
-        painter.fillRect(self.rect(), QtGui.QColor("black"))
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("black"))
         painter.drawImage(self.rect().center() - convertedImage.rect().center(), convertedImage)
 
     def wheelEvent(self, event):
-        modifiers = QtGui.QGuiApplication.keyboardModifiers()
-        if modifiers == QtCore.Qt.ControlModifier:
+        modifiers = QGuiApplication.keyboardModifiers()
+        if modifiers == Qt.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
                 self.zoom_factor *= 1.1  # Increase zoom factor
@@ -115,7 +118,7 @@ class CameraWidget(QtWidgets.QWidget):
     def convert_frame_to_image(self, frame):
         height, width, channel = frame.shape
         bytes_per_line = channel * width
-        q_image = QtGui.QImage(np.ascontiguousarray(frame.data), width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+        q_image = QImage(np.ascontiguousarray(frame.data), width, height, bytes_per_line, QImage.Format_RGB888)
         q_image = q_image.scaledToHeight(self.height())
         return q_image.rgbSwapped()
 
@@ -229,7 +232,7 @@ class CameraWidget(QtWidgets.QWidget):
     def liveResult(self):
         while not observer.get("videoLoaded") and not self.stopThread:
             results = self.face_mesh.process(self.currentFrame).multi_face_landmarks
-            nbLandmarks = max([num for tup in mp.solutions.face_mesh_connections.FACEMESH_TESSELATION for num in tup])
+            nbLandmarks = max([num for tup in mp_face_mesh_connections.FACEMESH_TESSELATION for num in tup])
             self.faceLandmarks[0] = [[l.x,l.y,l.z] for l in results[0].landmark] if results else [[None,None,None]]*nbLandmarks
             observer.update("faceLandmarks", self.faceLandmarks)
 
@@ -251,14 +254,14 @@ class CameraWidget(QtWidgets.QWidget):
             observer.update("isAtEnd", isAtEnd)
 
 
-class CameraSelector(QtWidgets.QComboBox):
+class CameraSelector(QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.currentIndexChanged.connect(self.handle_webcam_selection)
         self.populate_webcam_list()
     
     def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == Qt.LeftButton:
             self.populate_webcam_list()
         super().mousePressEvent(event)
 

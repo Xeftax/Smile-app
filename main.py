@@ -1,7 +1,6 @@
 import sys
-import os
-import cv2
-from PySide6 import QtCore, QtWidgets
+from PySide6.QtCore import Qt, QMargins
+from PySide6.QtWidgets import QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QApplication
 
 import observer
 import camera
@@ -12,33 +11,33 @@ import menubar
 
 window = None
 
-class MainWindow(QtWidgets.QWidget):
+class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         
         self.resize(800, 600)
 
-        self.mainLayout = QtWidgets.QHBoxLayout(self, contentsMargins=QtCore.QMargins(0, 0, 0, 0))
+        self.mainLayout = QHBoxLayout(self, contentsMargins=QMargins(0, 0, 0, 0))
         
         # Create the splitter
-        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter = QSplitter(Qt.Horizontal)
         
         # Create the frames on each side
-        self.leftFrame = QtWidgets.QWidget()
-        self.rightFrame = QtWidgets.QWidget()
+        self.leftFrame = QWidget()
+        self.rightFrame = QWidget()
         
         # Set layouts for the frames
-        self.leftLayout = QtWidgets.QVBoxLayout(self.leftFrame, contentsMargins=QtCore.QMargins(0, 0, 0, 0), spacing=0)
-        self.rightLayout = QtWidgets.QVBoxLayout(self.rightFrame, contentsMargins=QtCore.QMargins(0, 0, 0, 0), spacing=0)
+        self.leftLayout = QVBoxLayout(self.leftFrame, contentsMargins=QMargins(0, 0, 0, 0), spacing=0)
+        self.rightLayout = QVBoxLayout(self.rightFrame, contentsMargins=QMargins(0, 0, 0, 0), spacing=0)
         
         # Add widgets or other layouts to the left frame
         self.combo_box = camera.CameraSelector()
         self.camera = camera.CameraWidget()
         self.playToolbar = player.PlayerWidget()
         # set expanding horizontally and rap contant vertically
-        self.leftLayout.addWidget(self.combo_box, alignment=QtCore.Qt.AlignTop)
+        self.leftLayout.addWidget(self.combo_box, alignment=Qt.AlignTop)
         self.leftLayout.addWidget(self.camera)
-        self.leftLayout.addWidget(self.playToolbar, alignment=QtCore.Qt.AlignCenter)
+        self.leftLayout.addWidget(self.playToolbar, alignment=Qt.AlignCenter)
         
         # Add widgets or other layouts to the right frame
         self.dataSheet = datasheet.DataSheetWidget()
@@ -79,7 +78,7 @@ def createMainWindow():
     window.show()
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
     createMainWindow()
 

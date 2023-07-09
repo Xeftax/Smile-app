@@ -1,15 +1,14 @@
-import mediapipe as mp
 import cv2
-from PySide6 import QtWidgets
-import observer
+import mediapipe.python.solutions.face_mesh as mp_face_mesh
+import mediapipe.python.solutions.face_mesh_connections as mp_face_mesh_connections
 
 def faceMeshProcess(frameArray):
-    face_mesh = mp.solutions.face_mesh.FaceMesh(
+    face_mesh = mp_face_mesh.FaceMesh(
         max_num_faces=1,
         refine_landmarks=True,
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5)
-    nbLandmarks = max([num for tup in mp.solutions.face_mesh_connections.FACEMESH_TESSELATION for num in tup])
+    nbLandmarks = max([num for tup in mp_face_mesh_connections.FACEMESH_TESSELATION for num in tup])
     videoLenght = len(frameArray)
     faceLandmarks = [[[None,None,None]]*nbLandmarks]*(videoLenght)
     for i,frame in enumerate(frameArray):

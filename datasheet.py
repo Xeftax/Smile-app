@@ -1,14 +1,14 @@
-import observer
 import numpy as np
-import mediapipe as mp
-from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QComboBox
+from PySide6.QtCore import QMargins
+from PySide6.QtWidgets import QWidget, QSizePolicy
+import mediapipe.python.solutions.drawing_utils as mp_drawing_utils
+import observer
 
-class DataSheetWidget(QtWidgets.QWidget):
+class DataSheetWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.title = QtWidgets.QLabel("Data Sheet")
         self.tableWidget = QTableWidget(self)
         self.tableWidget.setColumnCount(2)
         self.tableWidget.setRowCount(8)
@@ -18,16 +18,16 @@ class DataSheetWidget(QtWidgets.QWidget):
         self.tableWidget.clicked.connect(self.handle_item_clicked)
         self.tableWidget.selectRow(0)
 
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.comboBox = QComboBox(self)
         self.comboBox.addItem("Distance")
         self.comboBox.addItem("Speed")
 
-        self.layout = QVBoxLayout(self, contentsMargins=QtCore.QMargins(0,0,0,0))
+        self.layout = QVBoxLayout(self, contentsMargins=QMargins(0,0,0,0))
         self.layout.addWidget(self.comboBox)
         self.layout.addWidget(self.tableWidget)
-        self.tableWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.data = {'Lip Length' : [(0,2),[],'#59adf6'],
                     'Upper Lip Thickness' : [(13,0),[],'#42d6a4'],
@@ -72,8 +72,8 @@ class DataSheetWidget(QtWidgets.QWidget):
                         x2,y2 = frame_landmarks[self.data[segment][0][1]][:2]
                         if None not in [x1,y1,x2,y2]:
                             size = observer.get("imageSize")
-                            p1 = mp.solutions.drawing_utils._normalized_to_pixel_coordinates(x1,y1, size[1], size[0])
-                            p2 = mp.solutions.drawing_utils._normalized_to_pixel_coordinates(x2,y2, size[1], size[0])
+                            p1 = mp_drawing_utils._normalized_to_pixel_coordinates(x1,y1, size[1], size[0])
+                            p2 = mp_drawing_utils._normalized_to_pixel_coordinates(x2,y2, size[1], size[0])
                             if p1 and p2:
                                 value = np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
                     elif isinstance(self.data[segment][0][0],str):

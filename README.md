@@ -1,4 +1,4 @@
-# Build (with a virtual env)
+# Build (with a virtual venv)
 
 * Create environment (Your Python executable might be called python3) :
     ```
@@ -17,4 +17,11 @@
 * Install all requirements :
     ```
     pip install -r requirements.txt
+    ```
+
+# Run
+
+* Execute the 'main.py' file in the virtual environement (Your Python executable might be called python3) :
+    ```
+    python main.py
     ```

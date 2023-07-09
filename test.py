@@ -1,14 +1,15 @@
 import numpy as np
 import cv2
 from segment_anything import sam_model_registry, SamPredictor
-import mediapipe as mp
+import mediapipe.python.solutions.face_mesh as mp_face_mesh
+import mediapipe.python.solutions.drawing_utils as mp_drawing_utils
 import time
 
 sam_checkpoint = "sam_vit_b_01ec64.pth"
 model_type = "vit_b"
 device = "cpu"
 
-face_mesh = mp.solutions.face_mesh.FaceMesh(
+face_mesh = mp_face_mesh.FaceMesh(
         max_num_faces=1,
         refine_landmarks=True,
         min_detection_confidence=0.5,
@@ -31,7 +32,7 @@ for i in range(videoLenght):
             x = [landmark.x for landmark in results.landmark]
             y = [landmark.y for landmark in results.landmark]
             w,h = frame.shape[:2]
-            x,y = np.transpose([mp.solutions.drawing_utils._normalized_to_pixel_coordinates(i,j,h,w) for i,j in zip(x,y)])
+            x,y = np.transpose([mp_drawing_utils._normalized_to_pixel_coordinates(i,j,h,w) for i,j in zip(x,y)])
             xc = int((x[291] + x[61])/2)
             yc = int((y[17] + y[0])/2)
             ry = int((y[17] - y[0])*0.5)

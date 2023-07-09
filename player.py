@@ -1,23 +1,25 @@
-from PySide6 import QtCore, QtWidgets, QtGui
 from os import path
+from PySide6.QtCore import QMargins
+from PySide6.QtWidgets import QWidget, QSizePolicy, QHBoxLayout, QPushButton
+from PySide6.QtGui import QIcon
 import observer
 
 btnSize = 50
 
-class PlayerWidget(QtWidgets.QWidget):
+class PlayerWidget(QWidget):
     def __init__(self):
         super().__init__()
-        layout = QtWidgets.QHBoxLayout(self, contentsMargins=QtCore.QMargins(0, 0, 0, 0))
+        layout = QHBoxLayout(self, contentsMargins=QMargins(0, 0, 0, 0))
 
         iconDir = "resources"
-        toStartButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_start_icon.svg")), "goToStart", (["videoLoaded","isAtStart"],[True,False]))
-        previousButton = IconButton(QtGui.QIcon(path.join(iconDir,"previous_icon.svg")), "previousFrame", (["videoLoaded","isAtStart"],[True,False]))
-        playButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"play_icon.svg")), QtGui.QIcon(path.join(iconDir,"pause_icon.svg")), "isPlaying",(["videoLoaded"],[True]))
-        nextButton = IconButton(QtGui.QIcon(path.join(iconDir,"next_icon.svg")), "nextFrame", (["videoLoaded","isAtEnd"],[True,False]))
-        toEndButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_end_icon.svg")), "goToEnd", (["videoLoaded","isAtEnd"],[True,False]))
-        blank = QtWidgets.QWidget()
+        toStartButton = IconButton(QIcon(path.join(iconDir,"to_start_icon.svg")), "goToStart", (["videoLoaded","isAtStart"],[True,False]))
+        previousButton = IconButton(QIcon(path.join(iconDir,"previous_icon.svg")), "previousFrame", (["videoLoaded","isAtStart"],[True,False]))
+        playButton = ToggleButton(QIcon(path.join(iconDir,"play_icon.svg")), QIcon(path.join(iconDir,"pause_icon.svg")), "isPlaying",(["videoLoaded"],[True]))
+        nextButton = IconButton(QIcon(path.join(iconDir,"next_icon.svg")), "nextFrame", (["videoLoaded","isAtEnd"],[True,False]))
+        toEndButton = IconButton(QIcon(path.join(iconDir,"to_end_icon.svg")), "goToEnd", (["videoLoaded","isAtEnd"],[True,False]))
+        blank = QWidget()
         blank.setFixedWidth(30)
-        recordButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"record_icon.svg")), QtGui.QIcon(path.join(iconDir,"stop_icon.svg")), "isRecording")
+        recordButton = ToggleButton(QIcon(path.join(iconDir,"record_icon.svg")), QIcon(path.join(iconDir,"stop_icon.svg")), "isRecording")
         recordButton.setEnabled(True)
 
         layout.addWidget(toStartButton)
@@ -32,12 +34,12 @@ class PlayerWidget(QtWidgets.QWidget):
         self.setFixedWidth(7*(btnSize + 10) + 10)     
 
 
-class IconButton(QtWidgets.QPushButton):
+class IconButton(QPushButton):
     def __init__(self, icon, observerName, enableConditions=([],[])):
         super().__init__(icon, "")
         
         self.setCheckable(False)
-        self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setFixedSize(btnSize, btnSize)
 
         self.conditionState = enableConditions[1][:]
