@@ -13,7 +13,7 @@ class MenuBar(QtWidgets.QMenuBar):
         self.createEditMenu()
         self.createViewMenu()
 
-        observer.register("createNew", lambda _: self.newFunction())
+        observer.register("checkIfSaved", self.unsaveDataPopupFunction)
         
         self.setGeometry(0, 0, self.parent().width(), 20)
     
@@ -28,7 +28,7 @@ class MenuBar(QtWidgets.QMenuBar):
         file_menu.addSeparator()
         
         import_video_action = QtGui.QAction("Import Video", self)
-        import_video_action.triggered.connect(self.importVideoFunction)
+        import_video_action.triggered.connect(lambda: self.unsaveDataPopupFunction((self.importVideoFunction,lambda: None)))
         import_video_action.setShortcut("Ctrl+I")
         file_menu.addAction(import_video_action)
         
@@ -97,7 +97,7 @@ class MenuBar(QtWidgets.QMenuBar):
 
 
     def newFunction(self):
-        self.unsaveDataPopupFunction(self.parent().resetWindow, lambda: None)
+        self.parent().resetWindow()
 
     def importVideoFunction(self):
         options = QtWidgets.QFileDialog.Options()
@@ -125,6 +125,7 @@ class MenuBar(QtWidgets.QMenuBar):
             if os.path.isfile(data_path): 
                 with open(data_path, 'r') as file:
                     landmarks,intervals = utils.strToDataList(file.read())
+                observer.update("dataSaved", True)
             else:
                 QtWidgets.QMessageBox.warning(
                 self,
@@ -135,9 +136,10 @@ class MenuBar(QtWidgets.QMenuBar):
                 landmarks = utils.faceMeshProcess(frames)
                 intervals = [1000/video.get(cv2.CAP_PROP_FPS) for _ in range(videoLenght)]
                 observer.update("dataSaved", False)
+            observer.update("videoSaved", True)
             observer.update("loadedFrames", [frames, intervals])
-            observer.update("videoLoaded", True)
             observer.update("faceLandmarks", landmarks)
+            observer.update("videoLoaded", True)
 
     def saveFunction(self):
         if not observer.get("videoLoaded"):
@@ -195,7 +197,8 @@ class MenuBar(QtWidgets.QMenuBar):
 
     def recomputeLandmarksFunction(self):
         if observer.get("videoLoaded"):
-            utils.faceMeshProcess(observer.get("loadedFrames")[0])
+            faceLandmarks = utils.faceMeshProcess(observer.get("loadedFrames")[0])
+            observer.update("faceLandmarks", faceLandmarks)
             observer.update("dataSaved", False)
 
     def addLandmarkManuallyFunction(self):
@@ -229,24 +232,24 @@ class MenuBar(QtWidgets.QMenuBar):
         observer.update("zoom", round(min(w/nw, h/nh),1))
         self.parent().camera.update()
 
-
-
     def enableMouthTrackingFunction(self):
         observer.update("mouthTracking", not observer.get("mouthTracking"))
         self.parent().camera.update()
 
-    def unsaveDataPopupFunction(self, yesAction, noAction):
+    def unsaveDataPopupFunction(self, actions):
         if observer.get("videoLoaded") and (not observer.get("videoSaved") or not observer.get("dataSaved")):
             confirm = QtWidgets.QMessageBox.question(
             self,
             "Confirmation",
-            "Some video or data are not saved.\nAre you sure you want to continue ?",
+            "Some video or data are not saved.\nAre you sure to continue ?",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
             )
             if confirm == QtWidgets.QMessageBox.Yes:
-                yesAction()
+                actions[0]()
             else:
-                noAction()
+                actions[1]()
+        else:
+            actions[0]()
 
     
 

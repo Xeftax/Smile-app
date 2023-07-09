@@ -7,7 +7,7 @@ def register(name, update_func):
 
 def unregister(name,index):
     if name in __data and index < len(__data[name][1]):
-        __data[name][1].pop(index)
+        __data[name][1][index] = lambda _: None
 
 def update(name, value):
     __init_data_name(name)

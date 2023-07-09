@@ -22,13 +22,12 @@ class CameraWidget(QtWidgets.QWidget):
         self.faceLandmarks = [None]
 
         #Video capture
-        self.video_capture = cv2.VideoCapture(0)
+        self.video_capture = cv2.VideoCapture(observer.get('cameraId'))
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.loadNextLiveFrame)
         self.timer.start(33)
 
         self.currentFrame = None
-        self.framePosition = None
         self.recordedFrames = [[],[]] # [frames, frameInterval]
         self.prevFrameTime = None
         self.recordFrame = lambda _: None
@@ -42,6 +41,7 @@ class CameraWidget(QtWidgets.QWidget):
         threading.Thread(target=self.liveResult).start()
 
         observer.register("isRecording", self.startRecord)
+        observer.register("isRecording", lambda value: observer.update("showLandmarks", not value))
         observer.register("videoLoaded", self.changeVideoCapture)
         observer.register("isPlaying", self.playLoadedVideo)
         observer.register("previousFrame", lambda _: self.previousFrame())
@@ -54,9 +54,13 @@ class CameraWidget(QtWidgets.QWidget):
         observer.register("zoom", lambda zoom, self=self: setattr(self,"zoom_factor",zoom))
         observer.register("framePosition", self.mouthTracking)
         observer.register("loadedFrames", lambda frames, self=self: setattr(self,"recordedFrames",frames))
+        observer.register("goToFrame", lambda position: (observer.update("framePosition", position-1),self.loadNextRecordedFrame()))
+
 
         observer.update("videoLoaded", False)
         observer.update("videoLength", 0)
+        observer.update("loadedFrames", self.recordedFrames)
+        observer.update("imageSize", self.currentFrame.shape[:2])
         observer.update("isAtStart", False)
         observer.update("isAtEnd", False)
         observer.update("faceLandmarks", self.faceLandmarks)
@@ -127,7 +131,7 @@ class CameraWidget(QtWidgets.QWidget):
             self.timer.timeout.disconnect()
             self.timer.timeout.connect(self.loadNextLiveFrame)
             self.timer.start(33)
-            self.video_capture = cv2.VideoCapture(0)
+            self.video_capture = cv2.VideoCapture(observer.get('cameraId'))
 
     def playLoadedVideo(self, isPlaying):
         if not observer.get("videoLoaded"): return
@@ -162,31 +166,40 @@ class CameraWidget(QtWidgets.QWidget):
 
     def startRecord(self, record):
         if not record: return
-        observer.update("createNew",None)
-        self.recordFrame = self.saveFrame
-        observerIndex = observer.register("isRecording", lambda record: self.stopRecord(observerIndex) if not record else None)
+        self.tmpRecordObserverIndex = None
+        
+        observer.update("checkIfSaved", (
+            lambda self=self: (
+                observer.update("videoLoaded", False) if observer.get("videoLoaded") else None,
+                setattr(self, "prevFrameTime", None),
+                setattr(self, "recordedFrames", [[],[]]),
+                setattr(self, "recordFrame", self.saveFrame),
+                setattr(self, "tmpRecordObserverIndex", observer.register("isRecording", lambda value: None if value else self.stopRecord(self.tmpRecordObserverIndex))),
+            ),
+            lambda: setattr(self, "tmpRecordObserverIndex", observer.register("isRecording", lambda value: (observer.update("isRecording", False),observer.unregister("isRecording", self.tmpRecordObserverIndex)) if value else None)),
+        ))
 
     def stopRecord(self, observerIndex):
         observer.unregister("isRecording", observerIndex)
         observer.update("loadedFrames", self.recordedFrames)
-        observer.update("videoLoaded", True)
         self.recordFrame = lambda _: None
         self.faceLandmarks = utils.faceMeshProcess(self.recordedFrames[0])
         observer.update("faceLandmarks", self.faceLandmarks)
+        observer.update("videoLoaded", True)
 
     def loadNextLiveFrame(self):
         if not self.video_capture.isOpened():
-            print("Error: unable to open video source")
+            frame = cv2.imread("resources/no_video_source.png")
         else :
             ret, frame = self.video_capture.read()
             if not ret:
-                print("Error: unable to read video source")
+                frame = cv2.imread("resources/no_video_source.png")
             else : 
                 frame = cv2.flip(frame, 1)
-                self.currentFrame = frame
-                observer.update("framePosition", 0)
-            self.update()
+        self.currentFrame = frame
+        observer.update("framePosition", 0)
         self.recordFrame(frame)
+        self.update()
 
     def loadNextRecordedFrame(self):
         framePosition = observer.get("framePosition")+1
@@ -204,7 +217,7 @@ class CameraWidget(QtWidgets.QWidget):
 
     def mouthTracking(self,framePosition):
         h,w = self.currentFrame.shape[:2]
-        if observer.get("mouthTracking"): 
+        if observer.get("mouthTracking") and self.faceLandmarks[framePosition][0][0]: 
             x1 = self.faceLandmarks[framePosition][61][0]*w
             x2 = self.faceLandmarks[framePosition][291][0]*w
             y1 = self.faceLandmarks[framePosition][0][1]*h
@@ -216,16 +229,18 @@ class CameraWidget(QtWidgets.QWidget):
     def liveResult(self):
         while not observer.get("videoLoaded") and not self.stopThread:
             results = self.face_mesh.process(self.currentFrame).multi_face_landmarks
-            if results: 
-                self.faceLandmarks[0] = [[l.x,l.y,l.z] for l in results[0].landmark]
-                observer.update("faceLandmarks", self.faceLandmarks)
+            nbLandmarks = max([num for tup in mp.solutions.face_mesh_connections.FACEMESH_TESSELATION for num in tup])
+            self.faceLandmarks[0] = [[l.x,l.y,l.z] for l in results[0].landmark] if results else [[None,None,None]]*nbLandmarks
+            observer.update("faceLandmarks", self.faceLandmarks)
 
     def drawLandmarks(self,image):
         face_landmarks = self.faceLandmarks[observer.get("framePosition")]
         if not face_landmarks: return
         for landmark in face_landmarks:
-            x = int(landmark[0] * image.shape[1])
-            y = int(landmark[1] * image.shape[0])
+            x,y,_ = landmark
+            if x and y:
+                x = int(landmark[0] * image.shape[1])
+                y = int(landmark[1] * image.shape[0])
             cv2.circle(image, (x, y), 1, (200, 200, 200), -1)
 
     def updateStartEndObserver(self, pos):
@@ -235,7 +250,34 @@ class CameraWidget(QtWidgets.QWidget):
         if isAtEnd != observer.get("isAtEnd"):
             observer.update("isAtEnd", isAtEnd)
 
-        
+
+class CameraSelector(QtWidgets.QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.currentIndexChanged.connect(self.handle_webcam_selection)
+        self.populate_webcam_list()
+    
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.populate_webcam_list()
+        super().mousePressEvent(event)
+
+    def populate_webcam_list(self):
+        self.clear()
+        num_webcams = 10  # Assuming a maximum of 10 webcams
+        available_webcams = []
+
+        for i in range(num_webcams):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                available_webcams.append(i)
+                cap.release()
+
+        self.addItems([f"Camera {i}" for i in available_webcams] if len(available_webcams) > 0 else ["No camera detected"])
+
+
+    def handle_webcam_selection(self, index):
+        observer.update('cameraId', index)        
 
 
     

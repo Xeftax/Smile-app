@@ -1,5 +1,6 @@
 import mediapipe as mp
 import cv2
+from PySide6 import QtWidgets
 import observer
 
 def faceMeshProcess(frameArray):
@@ -29,5 +30,5 @@ def strToDataList(data):
     intervals = []
     parts = data.split('\n___\n')
     intervals = [float(interval) for interval in parts[0].split('\t')]
-    landmarks = [[[float(l) for l in landmark.split('\t')] for landmark in part.split('\n')] for part in parts[1:]]
+    landmarks = [[[float(l) if l != 'None' else None for l in landmark.split('\t')] for landmark in part.split('\n')] for part in parts[1:]]
     return landmarks, intervals

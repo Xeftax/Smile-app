@@ -10,11 +10,11 @@ class PlayerWidget(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout(self, contentsMargins=QtCore.QMargins(0, 0, 0, 0))
 
         iconDir = "resources"
-        toStartButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_start_icon.svg")), "goToStart", "isAtStart")
-        previousButton = IconButton(QtGui.QIcon(path.join(iconDir,"previous_icon.svg")), "previousFrame", "isAtStart")
-        playButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"play_icon.svg")), QtGui.QIcon(path.join(iconDir,"pause_icon.svg")), "isPlaying")
-        nextButton = IconButton(QtGui.QIcon(path.join(iconDir,"next_icon.svg")), "nextFrame", "isAtEnd")
-        toEndButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_end_icon.svg")), "goToEnd", "isAtEnd")
+        toStartButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_start_icon.svg")), "goToStart", (["videoLoaded","isAtStart"],[True,False]))
+        previousButton = IconButton(QtGui.QIcon(path.join(iconDir,"previous_icon.svg")), "previousFrame", (["videoLoaded","isAtStart"],[True,False]))
+        playButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"play_icon.svg")), QtGui.QIcon(path.join(iconDir,"pause_icon.svg")), "isPlaying",(["videoLoaded"],[True]))
+        nextButton = IconButton(QtGui.QIcon(path.join(iconDir,"next_icon.svg")), "nextFrame", (["videoLoaded","isAtEnd"],[True,False]))
+        toEndButton = IconButton(QtGui.QIcon(path.join(iconDir,"to_end_icon.svg")), "goToEnd", (["videoLoaded","isAtEnd"],[True,False]))
         blank = QtWidgets.QWidget()
         blank.setFixedWidth(30)
         recordButton = ToggleButton(QtGui.QIcon(path.join(iconDir,"record_icon.svg")), QtGui.QIcon(path.join(iconDir,"stop_icon.svg")), "isRecording")
@@ -33,25 +33,27 @@ class PlayerWidget(QtWidgets.QWidget):
 
 
 class IconButton(QtWidgets.QPushButton):
-    def __init__(self, icon, observerUpdate, observerLimit=None):
+    def __init__(self, icon, observerName, enableConditions=([],[])):
         super().__init__(icon, "")
         
         self.setCheckable(False)
         self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.setFixedSize(btnSize, btnSize)
 
-        self.setEnabled(observer.get("videoLoaded"))
-        observer.register("videoLoaded", lambda state: self.setEnabled(state and not observer.get(observerLimit)))
-        if observerLimit: observer.register(observerLimit, lambda state: self.setEnabled(not state and observer.get("videoLoaded")))
+        self.conditionState = enableConditions[1][:]
+        for i,condition in enumerate(enableConditions[0]):
+            self.conditionState[i] = observer.get(condition)
+            observer.register(condition, lambda state, i=i: (self.conditionState.__setitem__(i, state), self.setEnabled(self.conditionState == enableConditions[1])))
+        self.setEnabled(self.conditionState == enableConditions[1])
 
-        self.clicked.connect(lambda: self.onClick(observerUpdate))
+        self.clicked.connect(lambda: self.onClick(observerName))
 
     def onClick(self, observerName):
         observer.update(observerName, None)
         
 
 class ToggleButton(IconButton):
-    def __init__(self, icon1, icon2, observerName, observerLimit=None):
+    def __init__(self, icon1, icon2, observerName, observerLimit=([],[])):
         super().__init__(icon1, observerName, observerLimit)
         
         self.setCheckable(True)
